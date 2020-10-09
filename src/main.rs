@@ -1,7 +1,9 @@
-use libflate::zlib::Decoder;
+use crypto::digest::Digest;
+use crypto::sha1::Sha1;
+use libflate::zlib::{Decoder, Encoder};
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
 const DOT_GIT: &'static str = "./workdir/.git";
@@ -58,6 +60,37 @@ fn main() {
             .expect("i don't know what to do.");
         dbg!(buf);
     } else if sub == &"hash-object".to_string() {
+        // ❯ echo 'test content' | git hash-object --stdin
+        // d670460b4b4aece5915caf5c68d12f560a9fe3e4
+        // blob 13\u{0}test content\n
+
+        let content = args.get(1).unwrap();
+        // for debug.
+        let content = format!("{}\n", content);
+        let length = content.as_bytes().len();
+        let will_be_blobed = format!("blob {}{}{}", length, '\x00', content);
+        dbg!(&will_be_blobed);
+
+        let mut hasher = Sha1::new();
+        hasher.input_str(&will_be_blobed);
+        let hex = hasher.result_str();
+        dbg!(&hex);
+
+        // Encoding
+        let mut encoder = Encoder::new(Vec::new()).unwrap();
+        let mut will_be_blobed = will_be_blobed.as_bytes();
+        std::io::copy(&mut will_be_blobed, &mut encoder).unwrap();
+
+        let res = encoder.finish();
+        let mut encoded = res.unwrap().0.clone();
+
+        let dir = &hex[0..2];
+        let file = &hex[2..];
+        let create_dir = format!("{}/objects/{}", DOT_GIT, dir);
+        let _ = fs::create_dir(&create_dir);
+        let create_file = format!("{}/{}", create_dir, file);
+        let mut file = File::create(create_file).expect("what?");
+        dbg!(file.write_all(&mut encoded));
     } else {
         unimplemented!();
     };
