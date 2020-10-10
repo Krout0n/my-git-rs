@@ -63,9 +63,6 @@ fn hash_object(content: &str, should_write: bool) {
     // d670460b4b4aece5915caf5c68d12f560a9fe3e4
     // blob 13\u{0}test content\n
 
-    // for debug.
-    let content = format!("{}\n", content);
-
     let length = content.as_bytes().len();
     let will_be_blobed = format!("blob {}{}{}", length, '\x00', content);
     dbg!(&will_be_blobed);
@@ -113,6 +110,11 @@ fn main() {
                         .short('w')
                         .long("write")
                         .about("Create file"),
+                )
+                .arg(
+                    Arg::new("stdin")
+                        .long("stdin")
+                        .about(" Read the object from standard input instead of from a file."),
                 ),
         )
         .get_matches();
@@ -131,11 +133,19 @@ fn main() {
         }
         "hash-object" => {
             let args = subcmds.1;
-            if let Some(content) = args.value_of("content") {
-                hash_object(content, args.is_present("write"));
-            } else {
-                todo!();
-            }
+            let should_write = args.is_present("write");
+            let content = args.value_of("content").map(|s| s.to_string()).unwrap_or({
+                if args.is_present("stdin") {
+                    let mut content = String::new();
+                    let stdin = std::io::stdin();
+                    let mut handler = stdin.lock();
+                    handler.read_to_string(&mut content);
+                    content
+                } else {
+                    unimplemented!()
+                }
+            });
+            hash_object(&content, should_write);
         }
 
         _ => unimplemented!(),
