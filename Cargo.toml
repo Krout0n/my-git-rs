@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 libflate = "1"
 rust-crypto = "0.2.36"
+clap = "3.0.0-beta.2"
