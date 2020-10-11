@@ -8,7 +8,7 @@ use std::path::Path;
 
 use clap::{App, Arg};
 
-const DOT_GIT: &'static str = "./workdir/.git";
+const DOT_GIT: &'static str = "./.git";
 
 fn git_init() -> Option<()> {
     // for debug
@@ -104,7 +104,7 @@ fn main() {
         .subcommand(
             App::new("hash-object")
                 .about("Compute object ID and optionally creates a blob from a file")
-                .arg(Arg::new("content"))
+                .arg(Arg::new("filename"))
                 .arg(
                     Arg::new("write")
                         .short('w')
@@ -134,7 +134,16 @@ fn main() {
         "hash-object" => {
             let args = subcmds.1;
             let should_write = args.is_present("write");
-            let content = args.value_of("content").map(|s| s.to_string()).unwrap_or({
+            let content = args.value_of("filename").map(|filename| {
+                let file = File::open(filename).expect("can't open the specified file.");
+                let mut bufreader = BufReader::new(file);
+                let mut content = String::new();
+                bufreader.read_to_string(&mut content);
+                content
+            });
+            let content = if content.is_some() {
+                content.unwrap()
+            } else {
                 if args.is_present("stdin") {
                     let mut content = String::new();
                     let stdin = std::io::stdin();
@@ -144,7 +153,7 @@ fn main() {
                 } else {
                     unimplemented!()
                 }
-            });
+            };
             hash_object(&content, should_write);
         }
 
